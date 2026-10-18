@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::mft::{parse_mft_file, MftEntry};
+use crate::mft::{MftEntry, parse_mft_file};
 
 /// State of the MFT Explorer GUI application.
 pub struct MftApp {
@@ -81,70 +81,87 @@ impl MftApp {
 
     /// Renders the central scrollable table containing the list of parsed MFT records.
     fn render_records_table(&mut self, ui: &mut egui::Ui) {
-        egui::ScrollArea::both().auto_shrink(false).show(ui, |ui| {
-            egui::Grid::new("mft_records_grid")
-                .striped(true)
-                .spacing([15.0, 4.0])
-                .show(ui, |ui| {
-                    // Table header
-                    ui.strong("ID");
-                    ui.strong("Status");
-                    ui.strong("Created");
-                    ui.strong("Modified");
-                    ui.strong("MFT Mod");
-                    ui.strong("Accessed");
-                    ui.strong("Name");
-                    ui.end_row();
-
-                    // Render matching rows
-                    for record in &self.records {
-                        let name = record.name().unwrap_or("[No Name]");
-                        let is_alive = record.is_in_use();
-
-                        // Filter by deleted flag
-                        if self.deleted_only && is_alive {
-                            continue;
-                        }
-
-                        // Filter by search query (name or ID)
-                        if !self.search_query.is_empty() {
-                            let query = self.search_query.to_lowercase();
-                            let matches_name = name.to_lowercase().contains(&query);
-                            let matches_id =
-                                record.record_number().to_string() == self.search_query.trim();
-                            if !matches_name && !matches_id {
-                                continue;
-                            }
-                        }
-
-                        let status_text = if is_alive {
-                            egui::RichText::new("ALIVE").color(egui::Color32::from_rgb(80, 200, 80))
-                        } else {
-                            egui::RichText::new("DELETED").color(egui::Color32::from_rgb(240, 80, 80))
-                        };
-
-                        let is_selected =
-                            self.selected_record == Some(record.record_number() as usize);
-                        if ui
-                            .selectable_label(
-                                is_selected,
-                                format!("#{:04}", record.record_number()),
-                            )
-                            .clicked()
-                        {
-                            self.selected_record = Some(record.record_number() as usize);
-                        }
-
-                        ui.label(status_text);
-                        ui.monospace(record.created_time());
-                        ui.monospace(record.modified_time());
-                        ui.monospace(record.mft_time());
-                        ui.monospace(record.accessed_time());
-                        ui.label(name);
-                        ui.end_row();
+        let filtered_indices: Vec<usize> = self
+            .records
+            .iter()
+            .enumerate()
+            .filter(|(_, r)| {
+                let name = r.name().unwrap_or("[No Name]");
+                let is_alive = r.is_in_use();
+                if self.deleted_only && is_alive {
+                    return false;
+                }
+                if !self.search_query.is_empty() {
+                    let query = self.search_query.to_lowercase();
+                    let matches_name = name.to_lowercase().contains(&query);
+                    let matches_id = r.record_number().to_string() == self.search_query.trim();
+                    if !matches_name && !matches_id {
+                        return false;
                     }
-                });
-        });
+                }
+                true
+            })
+            .map(|(i, _)| i)
+            .collect();
+
+        let row_height = 20.0;
+        let total_rows = filtered_indices.len();
+
+        egui::ScrollArea::both().auto_shrink(false).show_rows(
+            ui,
+            row_height,
+            total_rows,
+            |ui, row_range| {
+                egui::Grid::new("mft_records_grid")
+                    .striped(true)
+                    .spacing([15.0, 4.0])
+                    .show(ui, |ui| {
+                        // Table header
+                        ui.strong("ID");
+                        ui.strong("Status");
+                        ui.strong("Created");
+                        ui.strong("Modified");
+                        ui.strong("MFT Mod");
+                        ui.strong("Accessed");
+                        ui.strong("Name");
+                        ui.end_row();
+
+                        for &idx in &filtered_indices[row_range] {
+                            let record = &self.records[idx];
+                            let name = record.name().unwrap_or("[No Name]");
+                            let is_alive = record.is_in_use();
+
+                            let status_text = if is_alive {
+                                egui::RichText::new("ALIVE")
+                                    .color(egui::Color32::from_rgb(80, 200, 80))
+                            } else {
+                                egui::RichText::new("DELETED")
+                                    .color(egui::Color32::from_rgb(240, 80, 80))
+                            };
+
+                            let is_selected =
+                                self.selected_record == Some(record.record_number() as usize);
+                            if ui
+                                .selectable_label(
+                                    is_selected,
+                                    format!("#{:04}", record.record_number()),
+                                )
+                                .clicked()
+                            {
+                                self.selected_record = Some(record.record_number() as usize);
+                            }
+
+                            ui.label(status_text);
+                            ui.monospace(record.created_time());
+                            ui.monospace(record.modified_time());
+                            ui.monospace(record.mft_time());
+                            ui.monospace(record.accessed_time());
+                            ui.label(name);
+                            ui.end_row();
+                        }
+                    });
+            },
+        );
     }
 }
 

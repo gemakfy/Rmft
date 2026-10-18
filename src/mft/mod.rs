@@ -1,6 +1,7 @@
 //! MFT parsing module.
 
 pub mod attribute;
+pub mod boot_sector;
 pub mod header;
 pub mod record;
 

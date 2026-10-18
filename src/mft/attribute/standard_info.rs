@@ -21,17 +21,17 @@ impl StandardInfoAttribute {
             return None;
         }
 
-        let content_offset = read_u16(slice, 20) as usize;
+        let content_offset = read_u16(slice, 20) as usize; // 0x14: offset to attribute content
         if slice.len() < content_offset + 32 {
             return None;
         }
 
         let content = &slice[content_offset..];
 
-        let created = read_u64(content, 0);
-        let modified = read_u64(content, 8);
-        let mft_modified = read_u64(content, 16);
-        let accessed = read_u64(content, 24);
+        let created = read_u64(content, 0); // 0x00: file creation time (FILETIME)
+        let modified = read_u64(content, 8); // 0x08: last modification time (FILETIME)
+        let mft_modified = read_u64(content, 16); // 0x10: MFT record modification time (FILETIME)
+        let accessed = read_u64(content, 24); // 0x18: last access time (FILETIME)
 
         Some(StandardInfoAttribute {
             created,

@@ -35,10 +35,10 @@ impl MftHeader {
             return None;
         }
 
-        let first_attr_offset = read_u16(record, 20);
-        let flags = read_u16(record, 22);
-        let used_size = read_u32(record, 24);
-        let record_number = read_u32(record, 44);
+        let first_attr_offset = read_u16(record, 20); // 0x14: offset to first attribute
+        let flags = read_u16(record, 22); // 0x16: flags (0x01 = in use, 0x02 = directory)
+        let used_size = read_u32(record, 24); // 0x18: used record size in bytes
+        let record_number = read_u32(record, 44); // 0x2C: MFT record number (inode)
 
         Some(MftHeader {
             record_number,

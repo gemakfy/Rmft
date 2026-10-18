@@ -11,12 +11,12 @@ pub struct DataAttribute {
 impl DataAttribute {
     /// Parses a resident $DATA attribute from an attribute buffer slice.
     pub fn from_slice(slice: &[u8]) -> Option<Self> {
-        if slice.len() < 24 || slice[8] != 0 {
+        if slice.len() < 24 || slice[8] != 0 { // 0x08: non-resident flag (0 = resident)
             return None;
         }
 
-        let data_size = read_u32(slice, 16) as usize;
-        let data_offset = read_u16(slice, 20) as usize;
+        let data_size = read_u32(slice, 16) as usize; // 0x10: resident payload size
+        let data_offset = read_u16(slice, 20) as usize; // 0x14: resident payload offset
 
         if slice.len() < data_offset + data_size {
             return None;

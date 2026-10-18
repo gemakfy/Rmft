@@ -18,14 +18,14 @@ impl FileNameAttribute {
             return None;
         }
 
-        let content_offset = read_u16(slice, 20) as usize;
+        let content_offset = read_u16(slice, 20) as usize; // 0x14: offset to attribute content
         if slice.len() < content_offset + FILE_NAME_DATA_OFFSET {
             return None;
         }
 
         let content = &slice[content_offset..];
-        let parent_record = read_u64(&content[..8], 0);
-        let name_len = content[64] as usize;
+        let parent_record = read_u64(&content[..8], 0); // 0x00: parent directory record number
+        let name_len = content[64] as usize; // 0x40: filename character count
 
         if content.len() < FILE_NAME_DATA_OFFSET + name_len * 2 {
             return None;
