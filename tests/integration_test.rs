@@ -18,9 +18,17 @@ fn test_mft_header_parsing_on_dummy_record() {
     // record_number = 100
     record[44] = 100;
 
-    let header = MftHeader::from_slice(&record).expect("Заголовок должен успешно распарситься");
+    let header = MftHeader::from_slice(&record).expect("Header should parse successfully");
     assert_eq!(header.record_number, 100);
     assert_eq!(header.first_attr_offset, 56);
     assert!(header.is_in_use());
     assert!(!header.is_directory());
 }
+
+#[test]
+fn test_parse_real_test_mft() {
+    let entries = mft::mft::parse_mft_file(std::path::Path::new("test.mft"));
+    println!("Parsed {} entries from test.mft", entries.len());
+    assert_eq!(entries.len(), 66);
+}
+

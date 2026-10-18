@@ -29,14 +29,18 @@ impl MftEntry {
                     break;
                 }
 
-                if attr.type_code == AttributeTypeCode::FileName && file_name.is_none() {
-                    file_name = FileNameAttribute::from_slice(&buffer[offset..]);
-                } else if attr.type_code == AttributeTypeCode::Data && data.is_none() {
-                    data = DataAttribute::from_slice(&buffer[offset..]);
-                } else if attr.type_code == AttributeTypeCode::StandardInformation
-                    && standard_info.is_none()
-                {
-                    standard_info = StandardInfoAttribute::from_slice(&buffer[offset..]);
+                let attr_slice = &buffer[offset..];
+                match attr.type_code {
+                    AttributeTypeCode::FileName if file_name.is_none() => {
+                        file_name = FileNameAttribute::from_slice(attr_slice);
+                    }
+                    AttributeTypeCode::Data if data.is_none() => {
+                        data = DataAttribute::from_slice(attr_slice);
+                    }
+                    AttributeTypeCode::StandardInformation if standard_info.is_none() => {
+                        standard_info = StandardInfoAttribute::from_slice(attr_slice);
+                    }
+                    _ => {}
                 }
 
                 offset += attr.length as usize;
@@ -71,5 +75,28 @@ impl MftEntry {
     /// Returns the file name if present.
     pub fn name(&self) -> Option<&str> {
         self.file_name.as_ref().map(|f| f.name.as_str())
+    }
+
+    fn format_timestamp(&self, select: impl FnOnce(&StandardInfoAttribute) -> u64) -> String {
+        self.standard_info
+            .as_ref()
+            .map(|s| StandardInfoAttribute::format_filetime(select(s)))
+            .unwrap_or_else(|| "N/A".to_string())
+    }
+
+    pub fn created_time(&self) -> String {
+        self.format_timestamp(|s| s.created)
+    }
+
+    pub fn modified_time(&self) -> String {
+        self.format_timestamp(|s| s.modified)
+    }
+
+    pub fn accessed_time(&self) -> String {
+        self.format_timestamp(|s| s.accessed)
+    }
+
+    pub fn mft_time(&self) -> String {
+        self.format_timestamp(|s| s.mft_modified)
     }
 }

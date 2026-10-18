@@ -5,3 +5,11 @@ edition = "2024"
 
 [dependencies]
 chrono = "0.4.45"
+eframe = "0.37.0"
+rfd = "0.17.2"
+
+[profile.release]
+lto = true
+panic = "abort"
+strip = true
+
