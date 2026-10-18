@@ -1,18 +1,24 @@
-//! Заголовок записи MFT (первые 48 байт).
+//! MFT record header (first 48 bytes of a record).
 //!
-//! Карта первых 48 байт (Header):
-//! | Смещение | Размер | Тип Rust | Описание |
-//! |----------|--------|----------|----------|
-//! | 0..4     | 4 B    | &[u8]    | Сигнатура: "FILE" или "BAAD" |
-//! | 4..6     | 2 B    | u16      | Fixup offset |
-//! | 6..8     | 2 B    | u16      | Fixup count |
-//! | 16..18   | 2 B    | u16      | Sequence Number (число переиспользований) |
-//! | 20..22   | 2 B    | u16      | Смещение к первому атрибуту (обычно 0x38 = 56) |
-//! | 22..24   | 2 B    | u16      | Флаги: 0x01 = ALIVE, 0x02 = DIRECTORY |
-//! | 24..28   | 4 B    | u32      | Реальный используемый размер записи |
-//! | 44..48   | 4 B    | u32      | Номер записи (Record / Inode Number) |
+//! Offset map:
+//! | Offset  | Size | Type   | Description |
+//! |---------|------|--------|-------------|
+//! | 0..4    | 4 B  | &[u8]  | Signature: "FILE" or "BAAD" |
+//! | 4..6    | 2 B  | u16    | Fixup array offset |
+//! | 6..8    | 2 B  | u16    | Fixup count |
+//! | 16..18  | 2 B  | u16    | Sequence number |
+//! | 20..22  | 2 B  | u16    | First attribute offset (typically 0x38 = 56) |
+//! | 22..24  | 2 B  | u16    | Flags: 0x01 = IN_USE, 0x02 = DIRECTORY |
+//! | 24..28  | 4 B  | u32    | Used size of the record |
+//! | 44..48  | 4 B  | u32    | Record / Inode number |
+
+use crate::utils::{read_u16, read_u32};
 
 pub const RECORD_SIZE: usize = 1024;
+pub const SIGNATURE_FILE: &[u8; 4] = b"FILE";
+
+pub const FLAG_IN_USE: u16 = 0x0001;
+pub const FLAG_DIRECTORY: u16 = 0x0002;
 
 #[derive(Debug, Clone)]
 pub struct MftHeader {
@@ -23,16 +29,12 @@ pub struct MftHeader {
 }
 
 impl MftHeader {
-    /// Принимает срез (slice) записи ровно на 1024 байта
+    /// Parses the header from a 1024-byte record slice.
     pub fn from_slice(record: &[u8]) -> Option<Self> {
-        // 1. Проверяем сигнатуру "FILE"
-        if record.len() < 48 || &record[0..4] != b"FILE" {
+        if record.len() < 48 || &record[0..4] != SIGNATURE_FILE {
             return None;
         }
 
-        // 2. Читаем числа Little-Endian.
-        // Задание: когда реализуешь utils::read_u16 и utils::read_u32,
-        // замени эти строки на вызовы функций из crate::utils!
         let first_attr_offset = read_u16(record, 20);
         let flags = read_u16(record, 22);
         let used_size = read_u32(record, 24);
@@ -46,13 +48,13 @@ impl MftHeader {
         })
     }
 
-    /// Проверяет, активен ли файл (не удален)
+    /// Checks if the record is currently in use (not deleted).
     pub fn is_in_use(&self) -> bool {
-        (self.flags & 0x01) != 0
+        (self.flags & FLAG_IN_USE) != 0
     }
 
-    /// Проверяет, является ли запись каталогом
+    /// Checks if the record represents a directory.
     pub fn is_directory(&self) -> bool {
-        (self.flags & 0x02) != 0
+        (self.flags & FLAG_DIRECTORY) != 0
     }
 }

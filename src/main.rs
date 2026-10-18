@@ -2,19 +2,18 @@ use std::env;
 use std::fs::File;
 use std::io::{self, Read};
 
-use mft::mft::header::{MftHeader, RECORD_SIZE};
+use mft::mft::MftEntry;
+use mft::mft::attribute::StandardInfoAttribute;
+use mft::mft::header::RECORD_SIZE;
 
 fn main() -> io::Result<()> {
-    // Принимаем путь из аргументов командной строки (например, cargo run -- test.mft)
-    // Либо по умолчанию открываем test.mft
     let path = env::args().nth(1).unwrap_or_else(|| "test.mft".to_string());
-    println!("Парсинг файла MFT: {}\n", path);
+    println!("Parsing MFT file: {}\n", path);
 
     let mut file = match File::open(&path) {
         Ok(f) => f,
         Err(err) => {
-            eprintln!("Ошибка: не удалось открыть файл '{}': {}", path, err);
-            eprintln!("Подсказка: создай test.mft с помощью скрипта scripts/create_test_mft.sh");
+            eprintln!("Error opening file '{}': {}", path, err);
             return Err(err);
         }
     };
@@ -24,26 +23,59 @@ fn main() -> io::Result<()> {
     let mut alive_records = 0;
     let mut deleted_records = 0;
 
-    // Читаем файл кусками ровно по 1024 байта
     while file.read_exact(&mut buffer).is_ok() {
-        if let Some(header) = MftHeader::from_slice(&buffer) {
+        if let Some(entry) = MftEntry::from_buffer(&buffer) {
             total_records += 1;
-            if header.is_in_use() {
+            if entry.is_in_use() {
                 alive_records += 1;
             } else {
                 deleted_records += 1;
             }
 
-            let status = if header.is_in_use() { "ALIVE" } else { "DELETED" };
-            let kind = if header.is_directory() { "DIR " } else { "FILE" };
+            let status = if entry.is_in_use() {
+                "ALIVE"
+            } else {
+                "DELETED"
+            };
+            let kind = if entry.is_directory() { "DIR " } else { "FILE" };
 
             println!(
-                "Запись #{:<4} | {} | {} | Первый атрибут на байте: {}",
-                header.record_number, status, kind, header.first_attr_offset
+                "Record #{:<4} | {:<7} | {}",
+                entry.record_number(),
+                status,
+                kind
             );
+
+            if let Some(file_name) = &entry.file_name {
+                println!(
+                    "    └─ File name: \"{}\" (Parent record: {})",
+                    file_name.name, file_name.parent_record
+                );
+            }
+
+            if let Some(data) = &entry.data {
+                let text = data.to_string_lossy();
+                println!("    └─ Content: {:?}", text.trim());
+            }
+
+            if let Some(standart_info) = &entry.standard_info {
+                let created = StandardInfoAttribute::format_filetime(standart_info.created);
+                let modified = StandardInfoAttribute::format_filetime(standart_info.modified);
+                let accessed = StandardInfoAttribute::format_filetime(standart_info.accessed);
+                let mft_modified =
+                    StandardInfoAttribute::format_filetime(standart_info.mft_modified);
+                println!("    └─ Created:  {}", created);
+                println!("    └─ Modified: {}", modified);
+                println!("    └─ Accessed: {}", accessed);
+                println!("    └─ MFT modified: {}", mft_modified);
+            }
         }
     }
 
-    println!("\nВсего валидных записей: {} (Живых: {}, Удаленных: {})", total_records, alive_records, deleted_records);
+    println!(
+        "\nTotal valid records: {} (Alive: {}, Deleted: {})",
+        total_records, alive_records, deleted_records
+    );
+
     Ok(())
 }

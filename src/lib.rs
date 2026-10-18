@@ -1,8 +1,6 @@
-//! Библиотека mft - ядро парсера файловой системы NTFS ($MFT).
+//! NTFS $MFT parsing library.
 //!
-//! Разделение на `lib.rs` и `main.rs`:
-//! - `lib.rs` содержит структуры данных и логику парсинга (их можно тестировать через `tests/`).
-//! - `main.rs` содержит CLI-обертку (чтение аргументов, вызов функций библиотеки и печать в консоль).
+//! Provides data structures and parsers for MFT records and attributes.
 
 pub mod mft;
 pub mod utils;
