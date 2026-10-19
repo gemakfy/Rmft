@@ -1,100 +1,71 @@
 use eframe::egui;
 
-use crate::mft::{MftEntry, parse_mft_file};
+use crate::gui::explorer::render_explorer_screen;
+use crate::gui::welcome::render_welcome_screen;
+use crate::mft::MftEntry;
 
-/// State of the MFT Explorer GUI application.
 pub struct MftApp {
     pub title: String,
     pub search_query: String,
     pub deleted_only: bool,
     pub records: Vec<MftEntry>,
     pub selected_record: Option<usize>,
+    pub device_path: String,
+    pub error_message: Option<String>,
+    pub filtered_indices: Vec<usize>,
+    last_search_query: String,
+    last_deleted_only: bool,
+    last_records_len: usize,
 }
 
 impl Default for MftApp {
     fn default() -> Self {
+        #[cfg(target_os = "windows")]
+        let default_device = r"\\.\C:".to_string();
+        #[cfg(not(target_os = "windows"))]
+        let default_device = "/dev/sda2".to_string();
+
         Self {
             title: "NTFS MFT Explorer".to_string(),
             search_query: String::new(),
             deleted_only: false,
             records: Vec::new(),
             selected_record: None,
+            device_path: default_device,
+            error_message: None,
+            filtered_indices: Vec::new(),
+            last_search_query: String::new(),
+            last_deleted_only: false,
+            last_records_len: 0,
         }
     }
 }
 
 impl MftApp {
-    /// Renders the top toolbar: file picker, search input, deleted-only filter, and record count.
-    fn render_top_panel(&mut self, ui: &mut egui::Ui) {
-        ui.heading(&self.title);
-        ui.separator();
-
-        ui.horizontal(|ui| {
-            if ui.button("Open MFT Dump").clicked()
-                && let Some(path) = rfd::FileDialog::new().pick_file()
-            {
-                self.records = parse_mft_file(&path);
-            }
-
-            ui.separator();
-
-            ui.label("Search:");
-            ui.text_edit_singleline(&mut self.search_query);
-            ui.checkbox(&mut self.deleted_only, "Deleted only");
-
-            ui.separator();
-            ui.label(format!("Loaded: {} records", self.records.len()));
-        });
-    }
-
-    /// Renders the left side panel displaying all metadata and resident content for the selected record.
-    fn render_details_panel(&self, ui: &mut egui::Ui) {
-        ui.heading("Record Details");
-        ui.separator();
-
-        if let Some(selected_id) = self.selected_record
-            && let Some(record) = self
-                .records
-                .iter()
-                .find(|r| r.record_number() as usize == selected_id)
+    pub fn update_filtered_indices(&mut self) {
+        if self.records.len() == self.last_records_len
+            && self.search_query == self.last_search_query
+            && self.deleted_only == self.last_deleted_only
         {
-            ui.label(format!("Name: {}", record.name().unwrap_or("[No Name]")));
-            ui.label(format!("Record ID: #{}", record.record_number()));
-            ui.label(format!("Created: {}", record.created_time()));
-            ui.label(format!("Modified: {}", record.modified_time()));
-            ui.label(format!("Accessed: {}", record.accessed_time()));
-            ui.label(format!("MFT modified: {}", record.mft_time()));
-
-            ui.separator();
-
-            if let Some(data_attr) = &record.data {
-                ui.strong("Resident Data Content:");
-                let text = String::from_utf8_lossy(&data_attr.data);
-                ui.monospace(text);
-            } else {
-                ui.label("No resident data (file is empty or non-resident).");
-            }
-        } else {
-            ui.label("Click any record in the table to inspect it.");
+            return;
         }
-    }
 
-    /// Renders the central scrollable table containing the list of parsed MFT records.
-    fn render_records_table(&mut self, ui: &mut egui::Ui) {
-        let filtered_indices: Vec<usize> = self
+        let query = self.search_query.trim().to_lowercase();
+        let query_empty = query.is_empty();
+
+        self.filtered_indices = self
             .records
             .iter()
             .enumerate()
             .filter(|(_, r)| {
-                let name = r.name().unwrap_or("[No Name]");
                 let is_alive = r.is_in_use();
                 if self.deleted_only && is_alive {
                     return false;
                 }
-                if !self.search_query.is_empty() {
-                    let query = self.search_query.to_lowercase();
+                if !query_empty {
+                    let name = r.name().unwrap_or("[No Name]");
                     let matches_name = name.to_lowercase().contains(&query);
-                    let matches_id = r.record_number().to_string() == self.search_query.trim();
+                    let matches_id = r.record_number().to_string() == query;
                     if !matches_name && !matches_id {
                         return false;
                     }
@@ -104,80 +75,18 @@ impl MftApp {
             .map(|(i, _)| i)
             .collect();
 
-        let row_height = 20.0;
-        let total_rows = filtered_indices.len();
-
-        egui::ScrollArea::both().auto_shrink(false).show_rows(
-            ui,
-            row_height,
-            total_rows,
-            |ui, row_range| {
-                egui::Grid::new("mft_records_grid")
-                    .striped(true)
-                    .spacing([15.0, 4.0])
-                    .show(ui, |ui| {
-                        // Table header
-                        ui.strong("ID");
-                        ui.strong("Status");
-                        ui.strong("Created");
-                        ui.strong("Modified");
-                        ui.strong("MFT Mod");
-                        ui.strong("Accessed");
-                        ui.strong("Name");
-                        ui.end_row();
-
-                        for &idx in &filtered_indices[row_range] {
-                            let record = &self.records[idx];
-                            let name = record.name().unwrap_or("[No Name]");
-                            let is_alive = record.is_in_use();
-
-                            let status_text = if is_alive {
-                                egui::RichText::new("ALIVE")
-                                    .color(egui::Color32::from_rgb(80, 200, 80))
-                            } else {
-                                egui::RichText::new("DELETED")
-                                    .color(egui::Color32::from_rgb(240, 80, 80))
-                            };
-
-                            let is_selected =
-                                self.selected_record == Some(record.record_number() as usize);
-                            if ui
-                                .selectable_label(
-                                    is_selected,
-                                    format!("#{:04}", record.record_number()),
-                                )
-                                .clicked()
-                            {
-                                self.selected_record = Some(record.record_number() as usize);
-                            }
-
-                            ui.label(status_text);
-                            ui.monospace(record.created_time());
-                            ui.monospace(record.modified_time());
-                            ui.monospace(record.mft_time());
-                            ui.monospace(record.accessed_time());
-                            ui.label(name);
-                            ui.end_row();
-                        }
-                    });
-            },
-        );
+        self.last_search_query = self.search_query.clone();
+        self.last_deleted_only = self.deleted_only;
+        self.last_records_len = self.records.len();
     }
 }
 
 impl eframe::App for MftApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        self.render_top_panel(ui);
-        ui.separator();
-
-        egui::Panel::left("details_panel")
-            .default_size(280.0)
-            .show(ui, |ui| {
-                self.render_details_panel(ui);
-            });
-
-        egui::CentralPanel::default().show(ui, |ui| {
-            self.render_records_table(ui);
-        });
+        if self.records.is_empty() {
+            render_welcome_screen(self, ui);
+        } else {
+            render_explorer_screen(self, ui);
+        }
     }
 }
