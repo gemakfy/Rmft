@@ -11,7 +11,8 @@ pub struct DataAttribute {
 impl DataAttribute {
     /// Parses a resident $DATA attribute from an attribute buffer slice.
     pub fn from_slice(slice: &[u8]) -> Option<Self> {
-        if slice.len() < 24 || slice[8] != 0 { // 0x08: non-resident flag (0 = resident)
+        if slice.len() < 24 || slice[8] != 0 {
+            // 0x08: non-resident flag (0 = resident)
             return None;
         }
 
@@ -28,8 +29,20 @@ impl DataAttribute {
         Some(DataAttribute { data })
     }
 
-    /// Returns the data as a UTF-8 lossy string.
     pub fn to_string_lossy(&self) -> String {
         String::from_utf8_lossy(&self.data).to_string()
+    }
+
+    pub fn to_safe_string(&self) -> String {
+        self.data
+            .iter()
+            .map(|&b| {
+                if b.is_ascii_graphic() || b == b' ' {
+                    b as char
+                } else {
+                    '.'
+                }
+            })
+            .collect()
     }
 }

@@ -9,6 +9,8 @@ pub const FILE_NAME_DATA_OFFSET: usize = 66;
 pub struct FileNameAttribute {
     pub name: String,
     pub parent_record: u64,
+    pub real_size: u64,
+    pub allocated_size: u64,
 }
 
 impl FileNameAttribute {
@@ -24,8 +26,11 @@ impl FileNameAttribute {
         }
 
         let content = &slice[content_offset..];
-        let parent_record = read_u64(&content[..8], 0); // 0x00: parent directory record number
         let name_len = content[64] as usize; // 0x40: filename character count
+
+        let parent_record = read_u64(content, 0); // 0x00
+        let allocated_size = read_u64(content, 40); // 0x28
+        let real_size = read_u64(content, 48); // 0x30
 
         if content.len() < FILE_NAME_DATA_OFFSET + name_len * 2 {
             return None;
@@ -33,7 +38,9 @@ impl FileNameAttribute {
 
         let name_bytes = &content[FILE_NAME_DATA_OFFSET..];
         let u16_chars: Vec<u16> = name_bytes[..name_len * 2]
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .map(|c| u16::from_le_bytes([c[0], c[1]]))
             .collect();
 
@@ -42,6 +49,8 @@ impl FileNameAttribute {
         Some(FileNameAttribute {
             name,
             parent_record,
+            real_size,
+            allocated_size,
         })
     }
 }

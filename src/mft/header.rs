@@ -29,7 +29,6 @@ pub struct MftHeader {
 }
 
 impl MftHeader {
-    /// Parses the header from a 1024-byte record slice.
     pub fn from_slice(record: &[u8]) -> Option<Self> {
         if record.len() < 48 || &record[0..4] != SIGNATURE_FILE {
             return None;
@@ -48,12 +47,10 @@ impl MftHeader {
         })
     }
 
-    /// Checks if the record is currently in use (not deleted).
     pub fn is_in_use(&self) -> bool {
         (self.flags & FLAG_IN_USE) != 0
     }
 
-    /// Checks if the record represents a directory.
     pub fn is_directory(&self) -> bool {
         (self.flags & FLAG_DIRECTORY) != 0
     }

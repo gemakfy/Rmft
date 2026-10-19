@@ -2,10 +2,14 @@
 
 pub mod attribute;
 pub mod boot_sector;
+pub mod data_run;
 pub mod header;
+pub mod reader;
 pub mod record;
 
+pub use data_run::{DataRun, decode_data_runs};
 pub use header::{MftHeader, RECORD_SIZE};
+pub use reader::read_mft_from_device;
 pub use record::MftEntry;
 
 use std::fs::File;

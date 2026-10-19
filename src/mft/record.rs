@@ -1,5 +1,3 @@
-//! High-level representation of an MFT record and its parsed attributes.
-
 use super::attribute::{
     AttributeHeader, AttributeTypeCode, DataAttribute, FileNameAttribute, StandardInfoAttribute,
 };
@@ -98,5 +96,50 @@ impl MftEntry {
 
     pub fn mft_time(&self) -> String {
         self.format_timestamp(|s| s.mft_modified)
+    }
+
+    pub fn file_size(&self) -> u64 {
+        self.file_name.as_ref().map(|f| f.real_size).unwrap_or(0)
+    }
+
+    pub fn alloc_size(&self) -> u64 {
+        self.file_name
+            .as_ref()
+            .map(|f| f.allocated_size)
+            .unwrap_or(0)
+    }
+
+    pub fn formatted_size(&self) -> String {
+        let size = self.file_size();
+        if self.is_directory() {
+            return "-".to_string();
+        }
+
+        if size >= 1024 * 1024 * 1024 {
+            format!("{:.2} GB", size as f64 / (1024.0 * 1024.0 * 1024.0))
+        } else if size >= 1024 * 1024 {
+            format!("{:.2} MB", size as f64 / (1024.0 * 1024.0))
+        } else if size >= 1024 {
+            format!("{:.2} KB", size as f64 / 1024.0)
+        } else {
+            format!("{} B", size)
+        }
+    }
+
+    pub fn formated_alloc_size(&self) -> String {
+        let size = self.alloc_size();
+        if self.is_directory() {
+            return "-".to_string();
+        }
+
+        if size >= 1024 * 1024 * 1024 {
+            format!("{:.2} GB", size as f64 / (1024.0 * 1024.0 * 1024.0))
+        } else if size >= 1024 * 1024 {
+            format!("{:.2} MB", size as f64 / (1024.0 * 1024.0))
+        } else if size >= 1024 {
+            format!("{:.2} KB", size as f64 / 1024.0)
+        } else {
+            format!("{} B", size)
+        }
     }
 }

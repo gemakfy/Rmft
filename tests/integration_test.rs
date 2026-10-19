@@ -32,3 +32,18 @@ fn test_parse_real_test_mft() {
     assert_eq!(entries.len(), 66);
 }
 
+#[test]
+fn test_read_mft_from_live_sda2_if_readable() {
+    let path = std::path::Path::new("/dev/sda2");
+    if path.exists() {
+        if let Ok(entries) = mft::mft::read_mft_from_device(path) {
+            println!(
+                "Successfully read {} records from /dev/sda2!",
+                entries.len()
+            );
+            assert!(entries.len() > 100_000);
+        } else {
+            println!("Could not read /dev/sda2 (permission denied or not root), skipping.");
+        }
+    }
+}

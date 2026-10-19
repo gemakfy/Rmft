@@ -28,12 +28,10 @@ impl NtfsBootSector {
         })
     }
 
-    /// Calculates the size of a single cluster in bytes.
     pub fn cluster_size(&self) -> u64 {
         (self.bytes_per_sector as u64) * (self.sectors_per_cluster as u64)
     }
 
-    /// Calculates the byte offset where $MFT begins on the raw partition/disk.
     pub fn mft_byte_offset(&self) -> u64 {
         self.mft_lcn * self.cluster_size()
     }

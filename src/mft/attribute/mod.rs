@@ -10,6 +10,6 @@ pub mod header;
 pub mod standard_info;
 
 pub use data::DataAttribute;
-pub use filename::{FileNameAttribute, FILE_NAME_DATA_OFFSET};
+pub use filename::{FILE_NAME_DATA_OFFSET, FileNameAttribute};
 pub use header::{AttributeHeader, AttributeTypeCode};
-pub use standard_info::{StandardInfoAttribute, FILETIME_TO_UNIX_OFFSET};
+pub use standard_info::{FILETIME_TO_UNIX_OFFSET, StandardInfoAttribute};
