@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use mft::gui::MftApp;
 
 fn main() -> eframe::Result<()> {
