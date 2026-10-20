@@ -12,7 +12,7 @@
 //! | 24..28  | 4 B  | u32    | Used size of the record |
 //! | 44..48  | 4 B  | u32    | Record / Inode number |
 
-use crate::utils::{read_u16, read_u32};
+use crate::utils::{read_u16, read_u32, read_u64};
 
 pub const RECORD_SIZE: usize = 1024;
 pub const SIGNATURE_FILE: &[u8; 4] = b"FILE";
@@ -26,6 +26,7 @@ pub struct MftHeader {
     pub flags: u16,
     pub first_attr_offset: u16,
     pub used_size: u32,
+    pub base_record: u64,
 }
 
 impl MftHeader {
@@ -34,16 +35,18 @@ impl MftHeader {
             return None;
         }
 
-        let first_attr_offset = read_u16(record, 20); // 0x14: offset to first attribute
-        let flags = read_u16(record, 22); // 0x16: flags (0x01 = in use, 0x02 = directory)
-        let used_size = read_u32(record, 24); // 0x18: used record size in bytes
-        let record_number = read_u32(record, 44); // 0x2C: MFT record number (inode)
+        let first_attr_offset = read_u16(record, 20);
+        let flags = read_u16(record, 22);
+        let used_size = read_u32(record, 24);
+        let base_record = read_u64(record, 32);
+        let record_number = read_u32(record, 44);
 
         Some(MftHeader {
             record_number,
             flags,
             first_attr_offset,
             used_size,
+            base_record,
         })
     }
 
@@ -53,5 +56,13 @@ impl MftHeader {
 
     pub fn is_directory(&self) -> bool {
         (self.flags & FLAG_DIRECTORY) != 0
+    }
+
+    pub fn is_extension(&self) -> bool {
+        self.base_record != 0
+    }
+
+    pub fn base_record_number(&self) -> u64 {
+        self.base_record & 0x0000_FFFF_FFFF_FFFF
     }
 }

@@ -1,17 +1,15 @@
-//! NTFS attribute header and type codes.
+use crate::utils::{read_u16, read_u32};
 
-use crate::utils::read_u32;
-
-/// Common header present at the beginning of every MFT attribute.
 #[derive(Debug, Clone)]
 pub struct AttributeHeader {
     pub type_code: AttributeTypeCode,
     pub length: u32,
     pub non_resident: bool,
+    pub name_length: u8,
+    pub name_offset: u16,
 }
 
 impl AttributeHeader {
-    /// Parses an attribute header from a byte slice.
     pub fn from_slice(slice: &[u8]) -> Option<Self> {
         if slice.len() < 8 {
             return None;
@@ -23,13 +21,17 @@ impl AttributeHeader {
                 type_code: AttributeTypeCode::EndOfAttributes,
                 length: 0,
                 non_resident: false,
+                name_length: 0,
+                name_offset: 0,
             });
         }
 
-        if slice.len() < 9 {
+        if slice.len() < 12 {
             return None;
         }
 
+        let name_length = slice[9];
+        let name_offset = read_u16(slice, 10);
         let length = read_u32(slice, 4);
         let non_resident = slice[8] != 0;
         let type_code = AttributeTypeCode::from(raw_type);
@@ -38,11 +40,12 @@ impl AttributeHeader {
             type_code,
             length,
             non_resident,
+            name_length,
+            name_offset,
         })
     }
 }
 
-/// Known NTFS attribute type codes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AttributeTypeCode {
     StandardInformation,
@@ -88,7 +91,9 @@ mod tests {
 
     #[test]
     fn test_attribute_header() {
-        let fake_bytes = [0x10, 0x00, 0x00, 0x00, 0x60, 0x00, 0x00, 0x00, 0x00];
+        let fake_bytes = [
+            0x10, 0x00, 0x00, 0x00, 0x60, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ];
         let header = AttributeHeader::from_slice(&fake_bytes).expect("Valid attribute header");
         assert_eq!(header.type_code, AttributeTypeCode::StandardInformation);
         assert_eq!(header.length, 96);
