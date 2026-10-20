@@ -1,3 +1,5 @@
+use std::sync::mpsc::Receiver;
+
 use eframe::egui;
 
 use crate::gui::explorer::render_explorer_screen;
@@ -22,6 +24,11 @@ pub enum SortDirection {
     Descending,
 }
 
+pub enum LoadingState {
+    Idle,
+    Reading(Receiver<Result<Vec<MftEntry>, String>>),
+}
+
 pub struct MftApp {
     pub title: String,
     pub search_query: String,
@@ -36,6 +43,7 @@ pub struct MftApp {
     pub filtered_indices: Vec<usize>,
     pub sort_column: Option<SortColumn>,
     pub sort_direction: SortDirection,
+    pub loading: LoadingState,
     last_search_query: String,
     last_deleted_only: bool,
     last_records_len: usize,
@@ -74,6 +82,7 @@ impl Default for MftApp {
             error_message: None,
             sort_column: None,
             sort_direction: SortDirection::Ascending,
+            loading: LoadingState::Idle,
             filtered_indices: Vec::new(),
             last_search_query: String::new(),
             last_deleted_only: false,

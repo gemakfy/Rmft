@@ -1,9 +1,41 @@
 use eframe::egui;
 
-use crate::gui::app::MftApp;
-use crate::mft::{parse_mft_file, read_mft_from_device};
+use crate::gui::app::{LoadingState, MftApp};
+use crate::mft::read_mft_from_device;
 
 pub fn render_welcome_screen(app: &mut MftApp, ui: &mut egui::Ui) {
+    if let LoadingState::Reading(ref rx) = app.loading {
+        ui.vertical_centered(|ui| {
+            ui.add_space(80.0);
+            ui.spinner();
+            ui.add_space(15.0);
+            ui.heading(egui::RichText::new("Reading MFT...").size(22.0).strong());
+            ui.label(
+                egui::RichText::new("Parsing NTFS records...")
+                    .color(egui::Color32::from_gray(160)),
+            );
+        });
+
+        match rx.try_recv() {
+            Ok(Ok(records)) => {
+                app.records = records;
+                app.loading = LoadingState::Idle;
+            }
+            Ok(Err(err)) => {
+                app.error_message = Some(err);
+                app.loading = LoadingState::Idle;
+            }
+            Err(std::sync::mpsc::TryRecvError::Empty) => {
+                ui.ctx().request_repaint();
+            }
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                app.error_message = Some("Worker thread terminated unexpectedly".to_string());
+                app.loading = LoadingState::Idle;
+            }
+        }
+        return;
+    }
+
     ui.vertical_centered(|ui| {
         ui.add_space(20.0);
         ui.heading(egui::RichText::new("NTFS MFT Explorer").size(26.0).strong());
@@ -48,8 +80,12 @@ pub fn render_welcome_screen(app: &mut MftApp, ui: &mut egui::Ui) {
                 if ui.add(btn).clicked()
                     && let Some(path) = rfd::FileDialog::new().pick_file()
                 {
-                    app.records = parse_mft_file(&path);
-                    app.error_message = None;
+                    let (tx, rx) = std::sync::mpsc::channel();
+                    std::thread::spawn(move || {
+                        let records = crate::mft::parse_mft_file(&path);
+                        let _ = tx.send(Ok(records));
+                    });
+                    app.loading = LoadingState::Reading(rx);
                 }
             },
         );
@@ -86,7 +122,8 @@ pub fn render_welcome_screen(app: &mut MftApp, ui: &mut egui::Ui) {
                     for dev in &app.discovered_devices {
                         let is_selected = app.device_path == dev.path;
                         let text = if dev.is_ntfs {
-                            egui::RichText::new(&dev.label).color(egui::Color32::from_rgb(100, 220, 100))
+                            egui::RichText::new(&dev.label)
+                                .color(egui::Color32::from_rgb(100, 220, 100))
                         } else {
                             egui::RichText::new(&dev.label)
                         };
@@ -111,15 +148,16 @@ pub fn render_welcome_screen(app: &mut MftApp, ui: &mut egui::Ui) {
                     .min_size(egui::vec2(240.0, 44.0));
 
                 if ui.add(btn).clicked() {
-                    match read_mft_from_device(std::path::Path::new(&app.device_path)) {
-                        Ok(records) => {
-                            app.records = records;
-                            app.error_message = None;
-                        }
-                        Err(err) => {
-                            app.error_message = Some(format!("Error: {}", err));
-                        }
-                    }
+                    let path = app.device_path.clone();
+                    let (tx, rx) = std::sync::mpsc::channel();
+
+                    std::thread::spawn(move || {
+                        let res = read_mft_from_device(std::path::Path::new(&path))
+                            .map_err(|e| e.to_string());
+                        let _ = tx.send(res);
+                    });
+
+                    app.loading = LoadingState::Reading(rx);
                 }
             },
         );
