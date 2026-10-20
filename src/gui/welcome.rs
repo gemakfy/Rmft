@@ -64,32 +64,51 @@ pub fn render_welcome_screen(app: &mut MftApp, ui: &mut egui::Ui) {
             egui::vec2(col_width, available_height),
             egui::Layout::top_down(egui::Align::Center),
             |ui| {
-                ui.add_space(available_height * 0.22);
+                ui.add_space(available_height * 0.10);
                 ui.heading(
                     egui::RichText::new("Live Disk / Partition")
                         .size(24.0)
                         .strong(),
                 );
-                ui.add_space(10.0);
+                ui.add_space(8.0);
                 ui.label(
                     egui::RichText::new(
                         "Read directly from a live block device or drive partition",
                     )
                     .color(egui::Color32::from_gray(160)),
                 );
-                ui.add_space(24.0);
+                ui.add_space(16.0);
+
+                if !app.discovered_devices.is_empty() {
+                    ui.label(egui::RichText::new("Detected Partitions:").strong());
+                    ui.add_space(4.0);
+
+                    for dev in &app.discovered_devices {
+                        let is_selected = app.device_path == dev.path;
+                        let text = if dev.is_ntfs {
+                            egui::RichText::new(&dev.label).color(egui::Color32::from_rgb(100, 220, 100))
+                        } else {
+                            egui::RichText::new(&dev.label)
+                        };
+
+                        if ui.selectable_label(is_selected, text).clicked() {
+                            app.device_path = dev.path.clone();
+                        }
+                    }
+                    ui.add_space(10.0);
+                }
 
                 ui.label(egui::RichText::new("Device Path:").strong());
-                ui.add_space(6.0);
+                ui.add_space(4.0);
                 ui.add(
                     egui::TextEdit::singleline(&mut app.device_path)
                         .hint_text("/dev/sda2 or \\\\.\\C:")
                         .desired_width(260.0),
                 );
-                ui.add_space(24.0);
+                ui.add_space(16.0);
 
                 let btn = egui::Button::new(egui::RichText::new("Read Partition").size(16.0))
-                    .min_size(egui::vec2(240.0, 48.0));
+                    .min_size(egui::vec2(240.0, 44.0));
 
                 if ui.add(btn).clicked() {
                     match read_mft_from_device(std::path::Path::new(&app.device_path)) {
