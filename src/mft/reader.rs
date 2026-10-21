@@ -28,12 +28,20 @@ pub fn read_mft_from_device(device_path: &Path) -> std::io::Result<Vec<MftEntry>
 
     let runs = extract_mft_data_runs(&rec0_buf);
 
-    let mut records = Vec::new();
     let mut buffer = [0u8; RECORD_SIZE];
     let mut reader = BufReader::with_capacity(1024 * 1024, file);
 
+    let mut records = if !runs.is_empty() {
+        let total_records: u64 = runs
+            .iter()
+            .map(|run| (run.length * cluster_size) / RECORD_SIZE as u64)
+            .sum();
+        Vec::with_capacity(total_records as usize)
+    } else {
+        Vec::new()
+    };
+
     if !runs.is_empty() {
-        // Read through all fragmented extents of the MFT
         for run in runs {
             let run_byte_offset = run.lcn * cluster_size;
             let records_in_run = (run.length * cluster_size) / RECORD_SIZE as u64;
@@ -46,7 +54,7 @@ pub fn read_mft_from_device(device_path: &Path) -> std::io::Result<Vec<MftEntry>
                 if reader.read_exact(&mut buffer).is_err() {
                     break;
                 }
-                if let Some(entry) = MftEntry::from_buffer(&buffer) {
+                if let Some(entry) = MftEntry::from_buffer(&mut buffer) {
                     records.push(entry);
                 }
             }
@@ -57,7 +65,7 @@ pub fn read_mft_from_device(device_path: &Path) -> std::io::Result<Vec<MftEntry>
         let mut empty_streak = 0;
 
         while reader.read_exact(&mut buffer).is_ok() {
-            if let Some(entry) = MftEntry::from_buffer(&buffer) {
+            if let Some(entry) = MftEntry::from_buffer(&mut buffer) {
                 records.push(entry);
                 empty_streak = 0;
             } else {

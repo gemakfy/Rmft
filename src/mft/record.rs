@@ -1,3 +1,5 @@
+use smol_str::SmolStr;
+
 use super::attribute::{
     AttributeHeader, AttributeTypeCode, DataAttribute, FileNameAttribute, StandardInfoAttribute,
 };
@@ -7,7 +9,7 @@ use super::header::{MftHeader, RECORD_SIZE};
 pub struct MftEntry {
     pub header: MftHeader,
     pub file_name: Option<FileNameAttribute>,
-    pub dos_name: Option<String>,
+    pub dos_name: Option<SmolStr>,
     pub data: Option<DataAttribute>,
     pub standard_info: Option<StandardInfoAttribute>,
     pub alternate_streams: Vec<AlternateDataStream>,
@@ -45,11 +47,10 @@ fn apply_fixup(buffer: &mut [u8; RECORD_SIZE]) {
 }
 
 impl MftEntry {
-    pub fn from_buffer(buffer: &[u8; RECORD_SIZE]) -> Option<Self> {
-        let mut record = *buffer;
-        apply_fixup(&mut record);
+    pub fn from_buffer(record: &mut [u8; RECORD_SIZE]) -> Option<Self> {
+        apply_fixup(record);
 
-        let header = MftHeader::from_slice(&record)?;
+        let header = MftHeader::from_slice(record)?;
         let mut file_name = None;
         let mut dos_name = None;
         let mut data = None;

@@ -25,7 +25,7 @@ pub fn parse_mft_file(path: &Path) -> Vec<MftEntry> {
         let mut buffer = [0u8; RECORD_SIZE];
 
         while file.read_exact(&mut buffer).is_ok() {
-            if let Some(entry) = MftEntry::from_buffer(&buffer) {
+            if let Some(entry) = MftEntry::from_buffer(&mut buffer) {
                 records.push(entry);
             }
         }

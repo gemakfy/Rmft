@@ -1,11 +1,8 @@
-//! $STANDARD_INFORMATION attribute parser (type code 0x10).
-
 use crate::utils::{read_u16, read_u64};
 use chrono::DateTime;
 
 pub const FILETIME_TO_UNIX_OFFSET: u64 = 116_444_736_000_000_000;
 
-/// Parsed $STANDARD_INFORMATION attribute containing MACB timestamps.
 #[derive(Debug, Clone)]
 pub struct StandardInfoAttribute {
     pub created: u64,
@@ -15,7 +12,6 @@ pub struct StandardInfoAttribute {
 }
 
 impl StandardInfoAttribute {
-    /// Parses a $STANDARD_INFORMATION attribute from an attribute buffer slice.
     pub fn from_slice(slice: &[u8]) -> Option<Self> {
         if slice.len() < 8 {
             return None;
@@ -41,7 +37,6 @@ impl StandardInfoAttribute {
         })
     }
 
-    /// Converts a Windows FILETIME (100-ns intervals since Jan 1, 1601) to a readable UTC date string.
     pub fn format_filetime(filetime: u64) -> String {
         let unix_secs = filetime.saturating_sub(FILETIME_TO_UNIX_OFFSET) / 10_000_000;
 

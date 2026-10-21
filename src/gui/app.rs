@@ -155,7 +155,9 @@ impl MftApp {
                     SortColumn::Name => {
                         let na = ra.name().unwrap_or("");
                         let nb = rb.name().unwrap_or("");
-                        na.to_lowercase().cmp(&nb.to_lowercase())
+                        na.chars()
+                            .flat_map(char::to_lowercase)
+                            .cmp(nb.chars().flat_map(char::to_lowercase))
                     }
                     SortColumn::Created => ra.created_raw().cmp(&rb.created_raw()),
                     SortColumn::Modified => ra.modified_raw().cmp(&rb.modified_raw()),

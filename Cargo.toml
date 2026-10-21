@@ -8,6 +8,7 @@ chrono = "0.4.45"
 eframe = "0.37.0"
 egui_extras = "0.37.0"
 rfd = "0.17.2"
+smol_str = "0.3.7"
 
 [profile.release]
 opt-level = 3

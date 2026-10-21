@@ -1,9 +1,3 @@
-//! NTFS attributes module.
-//!
-//! Every file record in MFT stores its data (timestamps, names, content)
-//! as a sequence of attributes starting at `first_attr_offset`.
-//! The chain of attributes terminates with marker `0xFFFFFFFF`.
-
 pub mod data;
 pub mod filename;
 pub mod header;

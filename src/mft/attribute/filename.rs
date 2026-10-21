@@ -1,13 +1,11 @@
-//! $FILE_NAME attribute parser (type code 0x30).
-
 use crate::utils::{read_u16, read_u64};
+use smol_str::SmolStr;
 
 pub const FILE_NAME_DATA_OFFSET: usize = 66;
 
-/// Parsed $FILE_NAME attribute containing the name and parent record number.
 #[derive(Debug, Clone)]
 pub struct FileNameAttribute {
-    pub name: String,
+    pub name: SmolStr,
     pub parent_record: u64,
     pub created: u64,
     pub modified: u64,
@@ -46,14 +44,14 @@ impl FileNameAttribute {
         }
 
         let name_bytes = &content[FILE_NAME_DATA_OFFSET..];
-        let u16_chars: Vec<u16> = name_bytes[..name_len * 2]
-            .as_chunks::<2>()
-            .0
-            .iter()
-            .map(|c| u16::from_le_bytes([c[0], c[1]]))
-            .collect();
 
-        let name = String::from_utf16_lossy(&u16_chars);
+        let name_iter = name_bytes[..name_len * 2]
+            .chunks_exact(2)
+            .map(|c| u16::from_le_bytes([c[0], c[1]]));
+
+        let name: SmolStr = char::decode_utf16(name_iter)
+            .map(|r| r.unwrap_or(char::REPLACEMENT_CHARACTER))
+            .collect();
 
         Some(FileNameAttribute {
             name,
