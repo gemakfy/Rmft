@@ -27,7 +27,7 @@ fn test_mft_header_parsing_on_dummy_record() {
 
 #[test]
 fn test_parse_real_test_mft() {
-    let test_mft_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("test.mft");
+    let test_mft_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/test.mft");
     let entries = mft::mft::parse_mft_file(&test_mft_path);
     assert_eq!(entries.len(), 66);
 
