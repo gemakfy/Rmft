@@ -12,7 +12,7 @@ pub use data_run::{DataRun, decode_data_runs};
 pub use device::{DiscoveredDevice, detect_devices};
 pub use header::{MftHeader, RECORD_SIZE};
 pub use reader::read_mft_from_device;
-pub use record::{MftEntry, format_bytes};
+pub use record::{MftEntry, format_bytes, resolve_extension_records};
 
 use std::fs::File;
 use std::io::Read;
@@ -31,5 +31,6 @@ pub fn parse_mft_file(path: &Path) -> Vec<MftEntry> {
         }
     }
 
+    resolve_extension_records(&mut records);
     records
 }

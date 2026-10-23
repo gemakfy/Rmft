@@ -77,6 +77,7 @@ pub fn read_mft_from_device(device_path: &Path) -> std::io::Result<Vec<MftEntry>
         }
     }
 
+    crate::mft::record::resolve_extension_records(&mut records);
     Ok(records)
 }
 

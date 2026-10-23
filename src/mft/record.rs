@@ -10,6 +10,7 @@ pub struct MftEntry {
     pub header: MftHeader,
     pub file_name: Option<FileNameAttribute>,
     pub dos_name: Option<SmolStr>,
+    pub extension_name: Option<SmolStr>,
     pub data: Option<DataAttribute>,
     pub standard_info: Option<StandardInfoAttribute>,
     pub alternate_streams: Vec<AlternateDataStream>,
@@ -131,6 +132,7 @@ impl MftEntry {
             header,
             file_name,
             dos_name,
+            extension_name: None,
             data,
             standard_info,
             alternate_streams,
@@ -150,7 +152,13 @@ impl MftEntry {
     }
 
     pub fn name(&self) -> Option<&str> {
-        self.file_name.as_ref().map(|f| f.name.as_str())
+        if let Some(ref f) = self.file_name {
+            Some(f.name.as_str())
+        } else if let Some(ref ext) = self.extension_name {
+            Some(ext.as_str())
+        } else {
+            None
+        }
     }
 
     pub fn dos_name(&self) -> Option<&str> {
@@ -245,5 +253,89 @@ pub fn format_bytes(size: u64, is_dir: bool) -> String {
         format!("{:.2} KB", size as f64 / 1024.0)
     } else {
         format!("{} B", size)
+    }
+}
+
+pub fn resolve_extension_records(records: &mut [MftEntry]) {
+    let mut base_names = std::collections::HashMap::new();
+
+    for r in records.iter() {
+        if !r.header.is_extension()
+            && let Some(name) = r.name()
+        {
+            base_names.insert(r.record_number() as u64, SmolStr::new(name));
+        }
+    }
+
+    for r in records.iter_mut() {
+        if r.header.is_extension() && r.file_name.is_none() {
+            let base_id = r.header.base_record_number();
+            let label = if let Some(base_name) = base_names.get(&base_id) {
+                format!("[Extension of #{}: {}]", base_id, base_name)
+            } else {
+                format!("[Extension of #{}]", base_id)
+            };
+            r.extension_name = Some(SmolStr::new(label));
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::mft::attribute::filename::FileNameAttribute;
+
+    #[test]
+    fn test_resolve_extension_records() {
+        let base_header = MftHeader {
+            record_number: 100,
+            flags: 1,
+            first_attr_offset: 56,
+            used_size: 1024,
+            base_record: 0,
+        };
+        let base_entry = MftEntry {
+            header: base_header,
+            file_name: Some(FileNameAttribute {
+                name: SmolStr::new("game.iso"),
+                parent_record: 5,
+                created: 0,
+                modified: 0,
+                mft_modified: 0,
+                accessed: 0,
+                real_size: 10_000_000_000,
+                allocated_size: 10_000_000_000,
+                namespace: 1,
+            }),
+            dos_name: None,
+            extension_name: None,
+            data: None,
+            standard_info: None,
+            alternate_streams: Vec::new(),
+        };
+
+        let ext_header = MftHeader {
+            record_number: 200,
+            flags: 1,
+            first_attr_offset: 56,
+            used_size: 1024,
+            base_record: 100, // Extension of #100
+        };
+        let ext_entry = MftEntry {
+            header: ext_header,
+            file_name: None,
+            dos_name: None,
+            extension_name: None,
+            data: None,
+            standard_info: None,
+            alternate_streams: Vec::new(),
+        };
+
+        let mut records = vec![base_entry, ext_entry];
+        assert_eq!(records[1].name(), None);
+
+        resolve_extension_records(&mut records);
+
+        assert_eq!(records[1].name(), Some("[Extension of #100: game.iso]"));
     }
 }
